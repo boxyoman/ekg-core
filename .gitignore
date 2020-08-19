@@ -7,7 +7,9 @@
 .cabal-sandbox/
 .hpc/
 /dist/*
+/dist-newstyle/*
 cabal.config
 cabal.sandbox.config
 examples/Group
 *.sublime-*
+.envrv
