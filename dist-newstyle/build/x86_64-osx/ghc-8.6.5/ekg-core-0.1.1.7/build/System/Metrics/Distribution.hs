@@ -1,9 +1,10 @@
+{-# LINE 1 "System/Metrics/Distribution.hsc" #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -funbox-strict-fields #-}
 
-#include "distrib.h"
+
 
 -- | This module defines a type for tracking statistics about a series
 -- of events. An event could be handling of a request and the value
@@ -59,17 +60,25 @@ data CDistrib = CDistrib
     }
 
 instance Storable CDistrib where
-    sizeOf _ = (#size struct distrib)
+    sizeOf _ = ((56))
+{-# LINE 63 "System/Metrics/Distribution.hsc" #-}
     alignment _ = alignment (undefined :: CInt)
 
     peek p = do
-        cCount <- (#peek struct distrib, count) p
-        cMean <- (#peek struct distrib, mean) p
-        cSumSqDelta <- (#peek struct distrib, sum_sq_delta) p
-        cSum <- (#peek struct distrib, sum) p
-        cMin <- (#peek struct distrib, min) p
-        cMax <- (#peek struct distrib, max) p
-        cLock <- (#peek struct distrib, lock) p
+        cCount <- ((\hsc_ptr -> peekByteOff hsc_ptr 0)) p
+{-# LINE 67 "System/Metrics/Distribution.hsc" #-}
+        cMean <- ((\hsc_ptr -> peekByteOff hsc_ptr 8)) p
+{-# LINE 68 "System/Metrics/Distribution.hsc" #-}
+        cSumSqDelta <- ((\hsc_ptr -> peekByteOff hsc_ptr 16)) p
+{-# LINE 69 "System/Metrics/Distribution.hsc" #-}
+        cSum <- ((\hsc_ptr -> peekByteOff hsc_ptr 24)) p
+{-# LINE 70 "System/Metrics/Distribution.hsc" #-}
+        cMin <- ((\hsc_ptr -> peekByteOff hsc_ptr 32)) p
+{-# LINE 71 "System/Metrics/Distribution.hsc" #-}
+        cMax <- ((\hsc_ptr -> peekByteOff hsc_ptr 40)) p
+{-# LINE 72 "System/Metrics/Distribution.hsc" #-}
+        cLock <- ((\hsc_ptr -> peekByteOff hsc_ptr 48)) p
+{-# LINE 73 "System/Metrics/Distribution.hsc" #-}
         return $! CDistrib
             { cCount      = cCount
             , cMean       = cMean
@@ -81,13 +90,20 @@ instance Storable CDistrib where
             }
 
     poke p CDistrib{..} = do
-        (#poke struct distrib, count) p cCount
-        (#poke struct distrib, mean) p cMean
-        (#poke struct distrib, sum_sq_delta) p cSumSqDelta
-        (#poke struct distrib, sum) p cSum
-        (#poke struct distrib, min) p cMin
-        (#poke struct distrib, max) p cMax
-        (#poke struct distrib, lock) p cLock
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 0)) p cCount
+{-# LINE 85 "System/Metrics/Distribution.hsc" #-}
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 8)) p cMean
+{-# LINE 86 "System/Metrics/Distribution.hsc" #-}
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 16)) p cSumSqDelta
+{-# LINE 87 "System/Metrics/Distribution.hsc" #-}
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 24)) p cSum
+{-# LINE 88 "System/Metrics/Distribution.hsc" #-}
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 32)) p cMin
+{-# LINE 89 "System/Metrics/Distribution.hsc" #-}
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 40)) p cMax
+{-# LINE 90 "System/Metrics/Distribution.hsc" #-}
+        ((\hsc_ptr -> pokeByteOff hsc_ptr 48)) p cLock
+{-# LINE 91 "System/Metrics/Distribution.hsc" #-}
 
 newCDistrib :: IO (ForeignPtr CDistrib)
 newCDistrib = do

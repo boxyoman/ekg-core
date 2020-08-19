@@ -9,6 +9,7 @@ module System.Metrics.Counter
     , read
     , inc
     , add
+    , reset
     ) where
 
 import qualified Data.Atomic as Atomic
@@ -33,3 +34,6 @@ inc counter = add counter 1
 -- | Add the argument to the counter.
 add :: Counter -> Int64 -> IO ()
 add counter = Atomic.add (unC counter)
+
+reset :: Counter -> IO ()
+reset counter = Atomic.write (unC counter) 0

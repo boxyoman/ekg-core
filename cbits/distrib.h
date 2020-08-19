@@ -18,3 +18,5 @@ void hs_distrib_add_n(struct distrib* distrib, StgDouble val, StgInt64 n);
  * assumed to not be used concurrently.
  */
 void hs_distrib_combine(struct distrib* b, struct distrib* a);
+
+void hs_distrib_zero(struct distrib* a);

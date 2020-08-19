@@ -42,3 +42,14 @@ void hs_distrib_combine(struct distrib* b, struct distrib* a) {
   a->max = b->max; // 813aa426be78e8abcf1c7cdd43433bcffa07828e
   hs_unlock(&b->lock);
 }
+
+void hs_distrib_zero(struct distrib* a) {
+  hs_lock(&a->lock);
+  a->count = 0;
+  a->mean = 0.0; // divide-by-zero gives NaN
+  a->sum_sq_delta = 0.0;
+  a->sum = 0.0;
+  a->min = 0.0; // This is slightly hacky, but ok: see
+  a->max = 0.0; // 813aa426be78e8abcf1c7cdd43433bcffa07828e
+  hs_unlock(&a->lock);
+}

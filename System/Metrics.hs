@@ -129,14 +129,15 @@ data State = State
 
 data GroupSampler = forall a. GroupSampler
      { groupSampleAction   :: !(IO a)
+     , groupSampleReset    :: !(IO ())
      , groupSamplerMetrics :: !(M.HashMap T.Text (a -> Value))
      }
 
 -- TODO: Rename this to Metric and Metric to SampledMetric.
-data MetricSampler = CounterS !(IO Int64)
-                   | GaugeS !(IO Int64)
+data MetricSampler = CounterS !(IO Int64) !(IO ())
+                   | GaugeS !(IO Int64) !(IO ())
                    | LabelS !(IO T.Text)
-                   | DistributionS !(IO Distribution.Stats)
+                   | DistributionS !(IO Distribution.Stats) !(IO ())
 
 -- | Create a new, empty metric store.
 newStore :: IO Store
@@ -158,19 +159,21 @@ newStore = do
 -- Also see 'createCounter'.
 registerCounter :: T.Text    -- ^ Counter name
                 -> IO Int64  -- ^ Action to read the current metric value
+                -> IO ()     -- ^ Action to reset metric value
                 -> Store     -- ^ Metric store
                 -> IO ()
-registerCounter name sample store =
-    register name (CounterS sample) store
+registerCounter name sample reset store =
+    register name (CounterS sample reset) store
 
 -- | Register an integer-valued metric. The provided action to read
 -- the value must be thread-safe. Also see 'createGauge'.
 registerGauge :: T.Text    -- ^ Gauge name
               -> IO Int64  -- ^ Action to read the current metric value
+              -> IO ()     -- ^ Action to reset metric value
               -> Store     -- ^ Metric store
               -> IO ()
-registerGauge name sample store =
-    register name (GaugeS sample) store
+registerGauge name sample reset store =
+    register name (GaugeS sample reset) store
 
 -- | Register a text metric. The provided action to read the value
 -- must be thread-safe. Also see 'createLabel'.
@@ -187,10 +190,11 @@ registerDistribution
     :: T.Text                 -- ^ Distribution name
     -> IO Distribution.Stats  -- ^ Action to read the current metric
                               -- value
+    -> IO ()                  -- ^ Action to reset metric value
     -> Store                  -- ^ Metric store
     -> IO ()
-registerDistribution name sample store =
-    register name (DistributionS sample) store
+registerDistribution name sample reset store =
+    register name (DistributionS sample reset) store
 
 register :: T.Text
          -> MetricSampler
@@ -261,15 +265,16 @@ registerGroup
     :: M.HashMap T.Text
        (a -> Value)  -- ^ Metric names and getter functions.
     -> IO a          -- ^ Action to sample the metric group
+    -> IO ()         -- ^ Action to reset metric value
     -> Store         -- ^ Metric store
     -> IO ()
-registerGroup getters cb store = do
+registerGroup getters cb reset store = do
     atomicModifyIORef (storeState store) $ \ State{..} ->
         let !state' = State
                 { stateMetrics = M.foldlWithKey' (register_ stateNextId)
                                  stateMetrics getters
                 , stateGroups  = IM.insert stateNextId
-                                 (GroupSampler cb getters)
+                                 (GroupSampler cb reset getters)
                                  stateGroups
                 , stateNextId  = stateNextId + 1
                 }
@@ -293,7 +298,7 @@ createCounter :: T.Text  -- ^ Counter name
               -> IO Counter
 createCounter name store = do
     counter <- Counter.new
-    registerCounter name (Counter.read counter) store
+    registerCounter name (Counter.read counter) (Counter.reset counter) store
     return counter
 
 -- | Create and register a zero-initialized gauge.
@@ -302,7 +307,7 @@ createGauge :: T.Text  -- ^ Gauge name
             -> IO Gauge
 createGauge name store = do
     gauge <- Gauge.new
-    registerGauge name (Gauge.read gauge) store
+    registerGauge name (Gauge.read gauge) (Gauge.reset gauge) store
     return gauge
 
 -- | Create and register an empty label.
@@ -320,7 +325,7 @@ createDistribution :: T.Text  -- ^ Distribution name
                    -> IO Distribution
 createDistribution name store = do
     event <- Distribution.new
-    registerDistribution name (Distribution.read event) store
+    registerDistribution name (Distribution.read event) (Distribution.reset event) store
     return event
 
 ------------------------------------------------------------------------
@@ -473,6 +478,7 @@ registerGcMetrics store =
      ])
     getGcStats
 #endif
+    (pure ())
     store
 
 #if MIN_VERSION_base(4,10,0)
@@ -622,10 +628,10 @@ data Value = Counter {-# UNPACK #-} !Int64
            deriving (Eq, Show)
 
 sampleOne :: MetricSampler -> IO Value
-sampleOne (CounterS m)      = Counter <$> m
-sampleOne (GaugeS m)        = Gauge <$> m
-sampleOne (LabelS m)        = Label <$> m
-sampleOne (DistributionS m) = Distribution <$> m
+sampleOne (CounterS m _)      = Counter <$> m
+sampleOne (GaugeS m _)        = Gauge <$> m
+sampleOne (LabelS m)          = Label <$> m
+sampleOne (DistributionS m _) = Distribution <$> m
 
 -- | Get a snapshot of all values.  Note that we're not guaranteed to
 -- see a consistent snapshot of the whole map.

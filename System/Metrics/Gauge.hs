@@ -12,6 +12,7 @@ module System.Metrics.Gauge
     , add
     , subtract
     , set
+    , reset
     ) where
 
 import qualified Data.Atomic as Atomic
@@ -48,3 +49,6 @@ subtract gauge = Atomic.subtract (unC gauge)
 -- | Set the gauge to the given value.
 set :: Gauge -> Int64 -> IO ()
 set gauge = Atomic.write (unC gauge)
+
+reset :: Gauge -> IO ()
+reset gauge = Atomic.write (unC gauge) 0
