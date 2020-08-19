@@ -65,6 +65,7 @@ module System.Metrics
       -- $sampling
     , Sample
     , sampleAll
+    , sampleAndResetAll
     , Value(..)
     ) where
 
@@ -640,4 +641,54 @@ readAllRefs :: M.HashMap T.Text (Either MetricSampler GroupId)
 readAllRefs m = do
     forM ([(name, ref) | (name, Left ref) <- M.toList m]) $ \ (name, ref) -> do
         val <- sampleOne ref
+        return (name, val)
+
+
+-- | Sample all metrics. Sampling is /not/ atomic in the sense that
+-- some metrics might have been mutated before they're sampled but
+-- after some other metrics have already been sampled.
+sampleAndResetAll :: Store -> IO Sample
+sampleAndResetAll store = do
+    state <- readIORef (storeState store)
+    let metrics = stateMetrics state
+        groups = stateGroups state
+    cbSample <- sampleAndResetGroups $ IM.elems groups
+    sample <- readAndResetAllRefs metrics
+    let allSamples = sample ++ cbSample
+    return $! M.fromList allSamples
+
+-- | Sample all metric groups.
+sampleAndResetGroups :: [GroupSampler] -> IO [(T.Text, Value)]
+sampleAndResetGroups cbSamplers = concat `fmap` sequence (map runOne cbSamplers)
+  where
+    runOne :: GroupSampler -> IO [(T.Text, Value)]
+    runOne GroupSampler{..} = do
+        a <- groupSampleAction
+        groupSampleReset
+        return $! map (\ (n, f) -> (n, f a)) (M.toList groupSamplerMetrics)
+
+
+sampleAndResetOne :: MetricSampler -> IO Value
+sampleAndResetOne (CounterS m reset)  = do
+  val <- Counter <$> m
+  reset
+  pure val
+sampleAndResetOne (GaugeS m reset)    = do
+  val <- Gauge <$> m
+  reset
+  pure val
+sampleAndResetOne (LabelS m)          =
+  Label <$> m
+sampleAndResetOne (DistributionS m reset) = do
+  val <- Distribution <$> m
+  reset
+  pure val
+
+-- | Get a snapshot of all values.  Note that we're not guaranteed to
+-- see a consistent snapshot of the whole map.
+readAndResetAllRefs :: M.HashMap T.Text (Either MetricSampler GroupId)
+            -> IO [(T.Text, Value)]
+readAndResetAllRefs m = do
+    forM ([(name, ref) | (name, Left ref) <- M.toList m]) $ \ (name, ref) -> do
+        val <- sampleAndResetOne ref
         return (name, val)
